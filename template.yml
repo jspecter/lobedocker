@@ -1,0 +1,68 @@
+apiVersion: zeabur.com/v1
+kind: Template
+metadata:
+  name: LobeChat Database Edition
+  description: 部署包含 PostgreSQL 和 LobeChat 的数据库版本，支持数据持久化。
+  author: YourName
+  icon: https://raw.githubusercontent.com/lobehub/lobe-chat/master/public/apple-touch-icon.png
+  tags: ["AI", "Chatbot", "LobeChat"]
+
+services:
+  # 1. PostgreSQL 数据库服务
+  postgresql:
+    name: lobe-postgres
+    icon: postgresql
+    template: docker
+    spec:
+      source:
+        docker:
+          image: pgvector/pgvector:pg16
+      env:
+        POSTGRES_DB: lobe
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} # 由用户在界面输入或自动生成
+  
+  # 2. LobeChat 主服务
+  lobe-chat:
+    name: lobe-chat
+    icon: lobechub
+    template: docker
+    dependencies:
+      - postgresql
+    spec:
+      source:
+        docker:
+          image: lobehub/lobe-chat-database
+      ports:
+        - port: 3210
+          type: http
+      env:
+        # 自动关联上面定义的 postgresql 服务名和端口
+        DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgresql:5432/lobe
+        NEXT_AUTH_SECRET: ${NEXT_AUTH_SECRET}
+        # 自动获取 Zeabur 为该服务分配的域名
+        APP_URL: https://${ZEABUR_WEB_URL}
+        OPENAI_API_KEY: ${OPENAI_API_KEY}
+        OPENAI_PROXY_URL: ${OPENAI_PROXY_URL}
+
+# 定义在部署界面让用户填写的变量
+variables:
+  - id: POSTGRES_PASSWORD
+    name: PostgreSQL Password
+    description: 设置你的数据库密码
+    type: string
+    default: "password_random_123"
+  - id: OPENAI_API_KEY
+    name: OpenAI API Key
+    description: 建议使用 OpenRouter 或 OpenAI 的 Key
+    type: string
+  - id: OPENAI_PROXY_URL
+    name: OpenAI Proxy URL
+    description: 如果使用 OpenRouter，请填 https://openrouter.ai/api/v1
+    type: string
+    default: "https://openrouter.ai/api/v1"
+  - id: NEXT_AUTH_SECRET
+    name: Next Auth Secret
+    description: 用于加密的随机字符串（至少32位）
+    type: string
+    default: "32_chars_random_secret_string_for_auth"
